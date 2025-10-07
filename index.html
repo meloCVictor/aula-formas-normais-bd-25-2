@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banco de Dados: Normalização</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Lexend Deca', sans-serif; overflow: hidden; }
+        .slide {
+            opacity: 0;
+            transform: scale(0.98) translateY(10px);
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            position: absolute; width: 100%; height: 100%;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        .slide.active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            z-index: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+        .dark-gradient-bg { 
+            background-color: #111827;
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+            background-size: 20px 20px;
+        }
+        .content-box {
+            background-color: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .title-accent { color: #34d399; }
+        .text-light { color: #d1d5db; }
+        .text-lighter { color: #f9fafb; }
+        .font-mono { font-family: 'Roboto Mono', monospace; }
+        .table-container table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .table-container th, .table-container td {
+            border: 1px solid rgba(75, 85, 99, 0.7);
+            padding: 12px;
+            text-align: left;
+        }
+        .table-container th {
+            background-color: rgba(55, 65, 81, 0.5);
+            color: #f9fafb;
+            font-weight: bold;
+        }
+        .table-container tr:nth-child(even) {
+            background-color: rgba(31, 41, 55, 0.3);
+        }
+    </style>
+</head>
+<body class="dark-gradient-bg flex items-center justify-center h-screen text-light">
+
+    <div id="presentation-container" class="relative w-full h-full max-w-6xl max-h-[85vh] bg-transparent rounded-3xl overflow-hidden">
+        <!-- Slides serão injetados aqui -->
+    </div>
+
+    <div id="navigation" class="fixed bottom-5 flex items-center space-x-4 z-20">
+        <button id="prev" class="px-6 py-3 bg-gray-700/50 backdrop-blur-sm text-gray-200 rounded-full shadow-lg hover:bg-gray-600 transition-all focus:outline-none disabled:opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <div id="slide-counter" class="text-lg font-semibold text-gray-200 bg-gray-700/50 backdrop-blur-sm px-5 py-3 rounded-full shadow-lg"></div>
+        <button id="next" class="px-6 py-3 bg-gray-700/50 backdrop-blur-sm text-gray-200 rounded-full shadow-lg hover:bg-gray-600 transition-all focus:outline-none disabled:opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </button>
+    </div>
+
+    <script>
+        const customImages = {
+            'data_chaos': { default: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1170&auto=format&fit=crop', custom: '' },
+            'magnifying_glass': { default: 'https://images.unsplash.com/photo-1576552824245-ef46a5124c28?q=80&w=1170&auto=format&fit=crop', custom: '' },
+            'gears': { default: 'https://images.unsplash.com/photo-1508921340878-ba53e1f416ec?q=80&w=1170&auto=format&fit=crop', custom: '' },
+            'atom': { default: 'https://images.unsplash.com/photo-1590237199299-e24c5dfe955e?q=80&w=1170&auto=format&fit=crop', custom: '' },
+            'chain': { default: 'https://images.unsplash.com/photo-1588484628369-dd013c72a8cf?q=80&w=1170&auto=format&fit=crop', custom: '' },
+            'pathway': { default: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1172&auto=format&fit=crop', custom: '' },
+            'checklist': { default: 'https://images.unsplash.com/photo-1585432959447-26830635339d?q=80&w=1170&auto=format&fit=crop', custom: '' }
+        };
+
+        const slidesData = [
+            { type: 'title', title: 'Banco de Dados:', accent_title: 'A Arquitetura da Informação', subtitle: 'Encontro 8 - Garantindo a Qualidade e a Integridade com a Normalização' },
+            { type: 'icon_list', title: 'Objetivos da Nossa Missão de Hoje', items: [
+                { icon: 'bug', title: 'Entender Anomalias', text: 'Compreender o que são anomalias de dados e por que a redundância é a raiz de muitos problemas.' },
+                { icon: 'link', title: 'Dominar Dependência Funcional', text: 'A ferramenta teórica para analisar a estrutura das tabelas.' },
+                { icon: 'rules', title: 'Aplicar as Formas Normais', text: 'Aprender a identificar e aplicar as regras da 1FN, 2FN e 3FN através de exemplos práticos.' },
+            ]},
+            { type: 'table_slide', title: 'O Perigo da Tabela Única (O "Tabelão")', scenario: "Vamos analisar o que acontece quando ignoramos a modelagem e tentamos colocar todas as informações de vendas de uma pequena livraria em uma única tabela.", table: `
+                <thead><tr><th>Num_Venda</th><th>Data</th><th>Cpf_Cliente</th><th>Nome_Cliente</th><th>Isbn_Livro</th><th>Titulo_Livro</th><th>Preco_Unit</th><th>Qtd</th></tr></thead>
+                <tbody>
+                    <tr><td>101</td><td>01/09</td><td>111.111</td><td>João Silva</td><td>123-45</td><td>BD para Leigos</td><td>R$ 50,00</td><td>1</td></tr>
+                    <tr class="bg-gray-800/50"><td>101</td><td>01/09</td><td>111.111</td><td>João Silva</td><td>678-90</td><td>SQL Avançado</td><td>R$ 70,00</td><td>1</td></tr>
+                    <tr><td>102</td><td>02/09</td><td>222.222</td><td>Ana Borges</td><td>123-45</td><td>BD para Leigos</td><td>R$ 50,00</td><td>2</td></tr>
+                </tbody>`
+            },
+            { type: 'table_slide', title: 'Identificando as Redundâncias', scenario: "As colunas em vermelho se repetem desnecessariamente. Elas dependem de chaves diferentes que estão misturadas aqui, causando as anomalias.", table: `
+                <thead><tr><th>Num_Venda</th><th>Data</th><th>Cpf_Cliente</th><th class="text-red-400">Nome_Cliente</th><th>Isbn_Livro</th><th class="text-red-400">Titulo_Livro</th><th class="text-red-400">Preco_Unit</th><th>Qtd</th></tr></thead>
+                <tbody>
+                    <tr><td>101</td><td>01/09</td><td>111.111</td><td class="text-red-400">João Silva</td><td>123-45</td><td class="text-red-400">BD para Leigos</td><td class="text-red-400">R$ 50,00</td><td>1</td></tr>
+                    <tr class="bg-gray-800/50"><td>101</td><td>01/09</td><td>111.111</td><td class="text-red-400">João Silva</td><td>678-90</td><td class="text-red-400">SQL Avançado</td><td class="text-red-400">R$ 70,00</td><td>1</td></tr>
+                    <tr><td>102</td><td>02/09</td><td>222.222</td><td class="text-red-400">Ana Borges</td><td>123-45</td><td class="text-red-400">BD para Leigos</td><td class="text-red-400">R$ 50,00</td><td>2</td></tr>
+                </tbody>`
+            },
+            { type: 'content_image', layout: 'image-right', title: 'As Consequências: Anomalias de Dados', imageUrl: customImages['data_chaos'].default, points: [
+                '<strong>Anomalia de Alteração:</strong> Se o "João Silva" mudar de nome, temos que alterar em MÚLTIPLAS linhas. Esquecer uma gera inconsistência.',
+                '<strong>Anomalia de Exclusão:</strong> Se cancelarmos a única venda da "Ana Borges", perdemos o cadastro dela do banco de dados.',
+                '<strong>Anomalia de Inserção:</strong> Como cadastrar um novo livro que ainda não foi vendido? Não podemos, pois a chave da venda é necessária.'
+            ]},
+            { type: 'content_image', layout: 'image-left', title: 'A Causa Raiz: Dependência Funcional', imageUrl: customImages['magnifying_glass'].default, points: [
+                'É uma restrição entre dois conjuntos de atributos. Dizemos que Y é funcionalmente dependente de X.',
+                '<span class="font-mono text-emerald-400 text-2xl">X -> Y</span>',
+                'Significa que para cada valor de X, existe <strong>exatamente um</strong> valor de Y associado.',
+                '<strong>A Pergunta Chave:</strong> "Sabendo o valor de X, eu consigo descobrir o valor de Y sem nenhuma dúvida?"'
+            ]},
+            { type: 'icon_list', title: 'Aprofundando na Dependência Funcional', items: [
+                { icon: 'key', title: 'Determinante e Dependente', text: 'Em X -> Y, X é o "determinante" (o que determina) e Y é o "dependente" (o que é determinado). A chave para a normalização é garantir que os atributos dependam apenas das chaves certas.' },
+                { icon: 'split', title: 'Tipos de Dependência', text: 'Existem dependências parciais (um atributo depende de SÓ PARTE da chave composta) e transitivas (um atributo depende de outro que não é chave). Elas são as causas das anomalias que corrigimos na 2FN e 3FN.' }
+            ]},
+            { type: 'icon_list', title: 'Dependência Funcional na Prática', items: [
+                { icon: 'check', title: 'CPF -> Nome_Pessoa', text: 'Sim, um CPF determina um único nome.' },
+                { icon: 'check', title: 'ISBN_Livro -> Titulo_Livro', text: 'Sim, um ISBN determina um único título.' },
+                { icon: 'check', title: 'CEP -> Endereco', text: 'Sim, um CEP geralmente determina um único logradouro.' },
+                { icon: 'cross', title: 'Nome_Curso -> Cod_Curso', text: 'Não! Cursos diferentes podem ter nomes parecidos. O correto é Cod_Curso -> Nome_Curso.' }
+            ]},
+            { type: 'table_slide', title: 'Atividade 1: Detetive de Dependências (15 min)', scenario: 'Analisem a tabela ALUNO_CURSO abaixo e identifiquem todas as dependências funcionais possíveis. Usem a notação com setas (X -> Y).', table: `
+                <thead><tr><th>Matr_Aluno</th><th>Nome_Aluno</th><th>Cod_Curso</th><th>Nome_Curso</th><th>Carga_Horaria_Curso</th></tr></thead>
+                <tbody>
+                    <tr><td>202501</td><td>Maria</td><td>10</td><td>Ciência da Comp.</td><td>3200</td></tr>
+                    <tr><td>202502</td><td>Pedro</td><td>20</td><td>Eng. de Software</td><td>3500</td></tr>
+                    <tr><td>202503</td><td>Lúcia</td><td>10</td><td>Ciência da Comp.</td><td>3200</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Gabarito: Detetive de Dependências', items: [
+                { icon: 'link', title: 'Matr_Aluno -> Nome_Aluno', text: 'Cada matrícula identifica um único aluno.' },
+                { icon: 'link', title: 'Matr_Aluno -> Cod_Curso', text: 'Neste modelo, cada aluno está em um único curso.' },
+                { icon: 'link', title: 'Cod_Curso -> Nome_Curso', text: 'O código do curso determina seu nome.' },
+                { icon: 'link', title: 'Cod_Curso -> Carga_Horaria_Curso', text: 'O código do curso determina sua carga horária.' }
+            ]},
+             { type: 'table_slide', title: 'Atividade 1.1: Mais Dependências', scenario: 'Agora, encontre as dependências na tabela de Pedidos abaixo.', table: `
+                <thead><tr><th>Num_Pedido</th><th>Data_Pedido</th><th>Cod_Cliente</th><th>Nome_Cliente</th><th>Email_Cliente</th></tr></thead>
+                <tbody>
+                    <tr><td>501</td><td>10/09</td><td>C80</td><td>Carlos</td><td>carlos@email.com</td></tr>
+                    <tr><td>502</td><td>11/09</td><td>C80</td><td>Carlos</td><td>carlos@email.com</td></tr>
+                    <tr><td>503</td><td>12/09</td><td>C95</td><td>Beatriz</td><td>bia@email.com</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Gabarito: Atividade 1.1', items: [
+                { icon: 'link', title: 'Num_Pedido -> Data_Pedido', text: 'Cada pedido tem uma única data.' },
+                { icon: 'link', title: 'Num_Pedido -> Cod_Cliente', text: 'Cada pedido pertence a um único cliente.' },
+                { icon: 'link', title: 'Cod_Cliente -> Nome_Cliente', text: 'O código do cliente determina seu nome.' },
+                { icon: 'link', title: 'Cod_Cliente -> Email_Cliente', text: 'O código do cliente determina seu email.' }
+            ]},
+            { type: 'content_image', layout: 'image-right', title: 'Primeira Forma Normal (1FN)', imageUrl: customImages['atom'].default, points: [
+                '<strong>A Regra da Atomicidade</strong>',
+                'Uma tabela está na 1FN se todos os seus atributos são <strong>atômicos</strong> (indivisíveis) e <strong>monovalorados</strong>.',
+                'Proíbe atributos multivalorados (vários valores na mesma coluna) e compostos.'
+            ]},
+            { type: 'content_image', layout: 'image-left', title: '1FN: Por que a Atomicidade é Crucial?', imageUrl: customImages['checklist'].default, points: [
+                '<strong>Facilita a Busca:</strong> Como você buscaria por um telefone específico se eles estivessem todos juntos em uma string "222-111, 222-112"?',
+                '<strong>Evita Lógica Complexa:</strong> Sem atomicidade, seu código de aplicação precisaria quebrar e juntar strings, adicionando complexidade e risco de erros.',
+                '<strong>Integridade Referencial:</strong> Garante que cada pedaço de informação seja um "bloco de construção" limpo e reutilizável no seu banco de dados.'
+            ]},
+            { type: 'table_slide', title: '1FN - Exemplo de Violação (Antes)', scenario: 'A coluna Telefones_Depto não é atômica, pois armazena mais de um valor.', table: `
+                <thead><tr><th>Cod_Depto</th><th>Nome_Depto</th><th>Telefones_Depto</th></tr></thead>
+                <tbody>
+                    <tr><td>1</td><td>Vendas</td><td class="text-red-400">"222-111, 222-112"</td></tr>
+                    <tr><td>2</td><td>RH</td><td>"333-221"</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: '1FN - A Solução (Depois)', items: [
+                { icon: 'split', title: 'DEPARTAMENTO', text: '<strong>Campos:</strong> Cod_Depto (PK), Nome_Depto' },
+                { icon: 'split', title: 'DEPTO_TELEFONES', text: '<strong>Campos:</strong> Cod_Depto (PK, FK), Telefone (PK)' }
+            ]},
+            { type: 'table_slide', title: 'Atividade 2: Chegando na 1FN (15 min)', scenario: "A tabela PROJETO abaixo viola a 1FN por causa da coluna 'Participantes'. Como vocês a reestruturariam?", table: `
+                <thead><tr><th>Cod_Proj</th><th>Nome_Proj</th><th>Participantes (Nomes)</th></tr></thead>
+                <tbody>
+                    <tr><td>P1</td><td>Alfa</td><td class="text-red-400">"Ana, Beto, Carol"</td></tr>
+                    <tr><td>P2</td><td>Beta</td><td class="text-red-400">"Beto, Davi"</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Solução: Chegando na 1FN', items: [
+                { icon: 'split', title: 'PROJETO', text: '<strong>Campos:</strong> Cod_Proj (PK), Nome_Proj' },
+                { icon: 'split', title: 'PROJETO_PARTICIPANTE', text: '<strong>Campos:</strong> Cod_Proj (PK, FK), Nome_Participante (PK)' }
+            ]},
+            { type: 'table_slide', title: 'Atividade 2.1: Outro Caso de 1FN', scenario: "A coluna Autores na tabela LIVRO_AUTORES também viola a Primeira Forma Normal. Como podemos corrigir?", table: `
+                <thead><tr><th>ISBN</th><th>Título</th><th>Autores</th></tr></thead>
+                <tbody>
+                    <tr><td>111-22</td><td>Dom Casmurro</td><td class="text-red-400">"Machado de Assis"</td></tr>
+                    <tr><td>333-44</td><td>A Rosa do Povo</td><td class="text-red-400">"Carlos Drummond de Andrade"</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Solução: Atividade 2.1', items: [
+                { icon: 'split', title: 'LIVRO', text: '<strong>Campos:</strong> ISBN (PK), Título' },
+                { icon: 'split', title: 'LIVRO_AUTOR', text: '<strong>Campos:</strong> ISBN (PK, FK), Autor (PK)' }
+            ]},
+            { type: 'content_image', layout: 'image-left', title: 'Segunda Forma Normal (2FN)', imageUrl: customImages['chain'].default, points: [
+                '<strong>A Regra da Dependência Total</strong>',
+                'Uma tabela está na 2FN se:',
+                '1. Ela já está em 1FN.',
+                '2. Todo atributo não-chave é <strong>totalmente dependente</strong> da chave primária inteira.',
+                'Aplica-se principalmente a tabelas com <strong>chaves primárias compostas</strong>.'
+            ]},
+            { type: 'content_image', layout: 'image-right', title: '2FN: O Foco na Chave Composta', imageUrl: customImages['chain'].default, points: [
+                'A 2FN só é uma preocupação quando você tem uma <strong>chave primária composta</strong> (formada por mais de uma coluna).',
+                'O problema é quando um atributo depende de <strong>APENAS UMA PARTE</strong> da chave, e não dela inteira.',
+                'Isso gera redundância, pois a informação que depende só de uma parte da chave se repetirá para cada valor da outra parte. A solução é sempre separar em uma nova tabela.'
+            ]},
+             { type: 'table_slide', title: '2FN - Exemplo de Violação', scenario: 'Chave Primária: (Num_Venda, Cod_Produto). Os campos Nome_Produto e Preco_Produto dependem APENAS de Cod_Produto, não da chave inteira. Isso é uma dependência parcial.', table: `
+                <thead><tr><th>Num_Venda</th><th>Cod_Produto</th><th>Nome_Produto</th><th>Preco_Produto</th><th>Qtd_Vendida</th></tr></thead>
+                <tbody>
+                    <tr><td>101</td><td>P1</td><td class="text-red-400">Caneta</td><td class="text-red-400">R$ 2,00</td><td>5</td></tr>
+                    <tr><td>101</td><td>P2</td><td class="text-red-400">Lápis</td><td class="text-red-400">R$ 1,00</td><td>10</td></tr>
+                    <tr><td>102</td><td>P1</td><td class="text-red-400">Caneta</td><td class="text-red-400">R$ 2,00</td><td>3</td></tr>
+                </tbody>`
+            },
+            { type: 'activity_prompt', title: 'Atividade 3: Chegando na 2FN (15 min)', text: 'Com base no exemplo anterior (ITEM_VENDA), como vocês normalizariam a tabela para a 2FN?' },
+            { type: 'icon_list', title: 'Solução: Chegando na 2FN', items: [
+                { icon: 'split', title: 'PRODUTO', text: '<strong>Campos:</strong> Cod_Produto (PK), Nome_Produto, Preco_Produto' },
+                { icon: 'split', title: 'ITEM_VENDA', text: '<strong>Campos:</strong> Num_Venda (PK, FK), Cod_Produto (PK, FK), Qtd_Vendida' }
+            ]},
+            { type: 'table_slide', title: 'Atividade 3.1: Mais um Desafio 2FN', scenario: 'A tabela MATRÍCULA possui a chave primária composta (Cod_Disciplina, Matr_Aluno). Identifique e corrija as dependências parciais.', table: `
+                <thead><tr><th>Cod_Disciplina</th><th>Matr_Aluno</th><th class="text-red-400">Nome_Disciplina</th><th class="text-red-400">Nome_Aluno</th></tr></thead>
+                <tbody>
+                    <tr><td>BD1</td><td>202501</td><td class="text-red-400">Banco de Dados I</td><td class="text-red-400">Maria</td></tr>
+                    <tr><td>POO</td><td>202501</td><td class="text-red-400">Prog. Orientada a Objetos</td><td class="text-red-400">Maria</td></tr>
+                    <tr><td>BD1</td><td>202502</td><td class="text-red-400">Banco de Dados I</td><td class="text-red-400">Pedro</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Solução: Atividade 3.1', items: [
+                { icon: 'split', title: 'DISCIPLINA', text: '<strong>Campos:</strong> Cod_Disciplina (PK), Nome_Disciplina' },
+                { icon: 'split', title: 'ALUNO', text: '<strong>Campos:</strong> Matr_Aluno (PK), Nome_Aluno' },
+                { icon: 'split', title: 'MATRICULA', text: '<strong>Campos:</strong> Cod_Disciplina (PK,FK), Matr_Aluno (PK,FK)' }
+            ]},
+            { type: 'content_image', layout: 'image-right', title: 'Terceira Forma Normal (3FN)', imageUrl: customImages['gears'].default, points: [
+                '<strong>A Regra da Não-Transitiva</strong>',
+                'Uma tabela está na 3FN se:',
+                '1. Ela já está em 2FN.',
+                '2. Nenhum atributo não-chave depende de <strong>outro atributo não-chave</strong>.',
+                'Em outras palavras, não pode haver "atalhos" ou dependências indiretas.'
+            ]},
+            { type: 'content_image', layout: 'image-left', title: '3FN: Combatendo a Dependência Transitiva', imageUrl: customImages['gears'].default, points: [
+                'Uma dependência transitiva é como um "efeito dominó": <strong>A -> B -> C</strong>, onde A é a chave primária e B e C são atributos não-chave.',
+                'O atributo C não depende diretamente da chave A, mas sim de B. Isso é um problema de modelagem.',
+                'Manter essa estrutura causa anomalias de alteração. Se o Nome do Curso mudar, você teria que alterá-lo em todos os registros de alunos daquele curso, em vez de um único lugar (na tabela de Cursos).'
+            ]},
+            { type: 'table_slide', title: '3FN - Exemplo de Violação', scenario: 'A chave é Matr_Aluno. O campo Nome_Curso depende de Cod_Curso, que por sua vez depende da chave. Isso é uma dependência transitiva: Matr_Aluno -> Cod_Curso -> Nome_Curso', table: `
+                <thead><tr><th>Matr_Aluno (PK)</th><th>Nome_Aluno</th><th>Cod_Curso</th><th class="text-red-400">Nome_Curso</th></tr></thead>
+                <tbody>
+                    <tr><td>202501</td><td>Maria</td><td>10</td><td class="text-red-400">Ciência da Comp.</td></tr>
+                    <tr><td>202502</td><td>Pedro</td><td>20</td><td class="text-red-400">Eng. de Software</td></tr>
+                    <tr><td>202503</td><td>Lúcia</td><td>10</td><td class="text-red-400">Ciência da Comp.</td></tr>
+                </tbody>`
+            },
+            { type: 'activity_prompt', title: 'Atividade 4: Chegando na 3FN (15 min)', text: 'Com base no exemplo anterior (ALUNO), como vocês normalizariam a tabela para a 3FN?'},
+            { type: 'icon_list', title: 'Solução: Chegando na 3FN', items: [
+                { icon: 'split', title: 'CURSO', text: '<strong>Campos:</strong> Cod_Curso (PK), Nome_Curso' },
+                { icon: 'split', title: 'ALUNO', text: '<strong>Campos:</strong> Matr_Aluno (PK), Nome_Aluno, Cod_Curso (FK)' }
+            ]},
+            { type: 'icon_list', title: 'Roteiro para a 3FN - Parte 1', items: [
+                { icon: 'key', title: '1. Identifique as Chaves Candidatas', text: 'Encontre todos os conjuntos mínimos de atributos que identificam unicamente uma linha na sua tabela inicial.' },
+                { icon: 'check', title: '2. Escolha a Chave Primária', text: 'Das chaves candidatas, escolha uma para ser a Chave Primária (PK). As outras serão chaves alternativas.' },
+                { icon: 'link', title: '3. Liste TODAS as Dependências', text: 'Para cada atributo, determine de qual chave (ou parte de chave) ele depende. Use a notação X -> Y.' }
+            ]},
+            { type: 'icon_list', title: 'Roteiro para a 3FN - Parte 2', items: [
+                { icon: 'rules', title: '4. Aplique a 1FN', text: 'Procure por atributos não atômicos. Se encontrar, crie uma nova tabela para eles, relacionando-a com a original.' },
+                { icon: 'rules', title: '5. Aplique a 2FN', text: 'Se a PK for composta, procure atributos que dependam de apenas parte dela. Mova-os para uma nova tabela junto com a parte da chave da qual dependem.' },
+                { icon: 'rules', title: '6. Aplique a 3FN', text: 'Procure por atributos não-chave que dependam de outros atributos não-chave. Mova-os para uma nova tabela.' }
+            ]},
+            { type: 'content_image', layout: 'image-left', title: 'Resumo do Processo de Normalização', imageUrl: customImages['pathway'].default, points: [
+                '<strong>Garantir a 1FN:</strong> Eliminar atributos multivalorados e grupos de repetição, criando novas tabelas.',
+                '<strong>Garantir a 2FN:</strong> Se a chave for composta, verificar se todos os outros atributos dependem dela por inteiro. Se não, decompor.',
+                '<strong>Garantir a 3FN:</strong> Verificar se algum atributo não-chave depende de outro não-chave. Se sim, decompor.'
+            ]},
+            { type: 'table_slide', title: 'Desafio Final: Do Caos à 3FN (20 min)', scenario: 'Vamos voltar ao nosso "tabelão" da livraria. Em grupos, apliquem todo o processo de normalização (1FN, 2FN e 3FN) para chegar ao modelo ideal.', table: `
+                <thead><tr><th>Num_Venda</th><th>Data</th><th>Cpf_Cliente</th><th>Nome_Cliente</th><th>Isbn_Livro</th><th>Titulo_Livro</th><th>Preco_Unit</th><th>Qtd</th></tr></thead>
+                <tbody>
+                    <tr><td>101</td><td>01/09</td><td>111.111</td><td>João Silva</td><td>123-45</td><td>BD para Leigos</td><td>R$ 50,00</td><td>1</td></tr>
+                </tbody>`
+            },
+            { type: 'icon_list', title: 'Solução do Desafio: A Estrutura Ideal (3FN)', items: [
+                { icon: 'split', title: 'CLIENTE', text: '<strong>Campos:</strong> Cpf_Cliente (PK), Nome_Cliente' },
+                { icon: 'split', title: 'LIVRO', text: '<strong>Campos:</strong> Isbn_Livro (PK), Titulo_Livro, Preco_Unit' },
+                { icon: 'split', title: 'VENDA', text: '<strong>Campos:</strong> Num_Venda (PK), Data, Cpf_Cliente (FK)' },
+                { icon: 'split', title: 'ITEM_VENDA', text: '<strong>Campos:</strong> Num_Venda (PK,FK), Isbn_Livro (PK,FK), Qtd' }
+            ]},
+            { type: 'icon_list', title: 'Além da 3FN (Para Saber Mais)', items: [
+                { icon: 'rules', title: 'Forma Normal de Boyce-Codd (FNBC)', text: 'Uma versão um pouco mais estrita da 3FN. Resolve certas anomalias raras não cobertas pela 3FN.' },
+                { icon: 'rules', title: 'Quarta Forma Normal (4FN)', text: 'Lida com "dependências multivaloradas", onde um atributo pode determinar um conjunto de valores de outro atributo, independentemente do resto da linha.' },
+                { icon: 'rules', title: 'Quinta Forma Normal (5FN)', text: 'Lida com "dependências de junção", garantindo que a tabela não possa ser decomposta e recomposta sem perda de dados. É muito rara na prática.' },
+                { icon: 'check', title: 'Foco Principal', text: 'Para 99% das aplicações de negócio, atingir a 3FN é o objetivo e garante um banco de dados robusto e livre de anomalias comuns.' }
+            ]},
+            { type: 'final', title: 'Obrigado!', accent_title: 'Dúvidas?', subtitle: 'A jornada pela organização de dados continua. Explore e pratique!' }
+        ];
+        
+        const icons = { 
+            bug: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="M12 20h.01"/><path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5"/><path d="M12 22a10 10 0 0 1-10-10c0-4.42 2.87-8.17 6.84-9.5"/><path d="M12 2a10 10 0 0 1 10 10c0 4.42-2.87 8.17-6.84 9.5"/><path d="M12 22a10 10 0 0 0 10-10c0-4.42-2.87-8.17-6.84-9.5"/></svg>`,
+            link: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>`,
+            rules: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+            check: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+            cross: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+            split: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.17-2.83L8.59 8.6a2 2 0 0 1 0-2.82L10.17 4.2a2 2 0 0 1 2.82 0l1.59 1.59a2 2 0 0 0 2.83 0L19.41 4.2a2 2 0 0 1 2.82 0l1.59 1.59a2 2 0 0 1 0 2.82L21.59 10.8a4 4 0 0 0-1.17 2.83V22"/><path d="M3 21h18"/></svg>`,
+            key: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`
+        };
+
+        let currentSlide = 0;
+        const presentationContainer = document.getElementById('presentation-container');
+        
+        function getIcon(name) { return icons[name] || ''; }
+        
+        function createSlide(slideData, index) {
+            const slideDiv = document.createElement('div');
+            slideDiv.className = `slide p-4 md:p-8 lg:p-12 flex flex-col justify-center items-center text-center`;
+            slideDiv.id = `slide-${index}`;
+            let innerHTML = '';
+
+            const imageSideClass = slideData.layout === 'image-right' ? 'md:flex-row-reverse' : 'md:flex-row';
+
+            switch (slideData.type) {
+                case 'title':
+                case 'final':
+                    innerHTML = `<div class="w-full max-w-4xl text-center relative"><h1 class="text-6xl md:text-8xl font-bold text-lighter">${slideData.title} <span class="title-accent">${slideData.accent_title}</span></h1>${slideData.subtitle ? `<p class="mt-6 text-2xl md:text-3xl text-light">${slideData.subtitle}</p>` : ''}</div>`;
+                    break;
+                
+                case 'content_image':
+                     innerHTML = `<div class="content-box p-8 w-full max-w-5xl flex flex-col ${imageSideClass} items-center gap-8 h-full md:h-auto overflow-y-auto relative"><img src="${slideData.imageUrl}" alt="${slideData.title}" class="w-full md:w-2/5 h-64 md:h-96 rounded-2xl object-cover shadow-lg" onerror="this.onerror=null;this.src='https://placehold.co/600x400/1f2937/34d399?text=Imagem';"><div class="text-left md:w-3/5"><h2 class="text-4xl font-bold text-lighter mb-6">${slideData.title}</h2><ul class="text-xl text-light space-y-4 list-inside">${slideData.points.map(point => `<li>${point}</li>`).join('')}</ul></div></div>`;
+                    break;
+                
+                case 'activity_prompt':
+                    innerHTML = `
+                    <div class="content-box p-12 w-full max-w-4xl text-center flex flex-col justify-center items-center">
+                        <h2 class="text-4xl font-bold text-lighter mb-6">${slideData.title}</h2>
+                        <p class="text-2xl text-light">${slideData.text}</p>
+                    </div>`;
+                    break;
+
+                case 'table_slide':
+                    innerHTML = `
+                    <div class="content-box p-8 w-full max-w-5xl h-full flex flex-col text-left overflow-y-auto">
+                        <h2 class="text-3xl md:text-4xl font-bold text-lighter mb-4">${slideData.title}</h2>
+                        ${slideData.scenario ? `<p class="text-lg text-light mb-6">${slideData.scenario}</p>` : ''}
+                        <div class="table-container flex-grow">
+                            <table>
+                                ${slideData.table}
+                            </table>
+                        </div>
+                    </div>`;
+                    break;
+                    
+                case 'icon_list':
+                     let cardsHTML = slideData.items.map(item => `
+                        <div class="icon-card flex items-start gap-4 text-left p-6 rounded-2xl bg-gray-800/50 hover:bg-gray-700/70 transition-colors duration-300">
+                            <div class="flex-shrink-0 mt-1">${getIcon(item.icon)}</div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-lighter">${item.title}</h3>
+                                <p class="text-lg text-light mt-1">${item.text}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                    innerHTML = `<div class="content-box p-12 w-full max-w-5xl h-full overflow-y-auto relative"><h2 class="text-4xl font-bold text-lighter mb-8">${slideData.title}</h2><div class="grid grid-cols-1 ${slideData.items.length > 2 ? 'md:grid-cols-2' : ''} gap-8">${cardsHTML}</div></div>`;
+                    break;
+            }
+            slideDiv.innerHTML = innerHTML;
+            return slideDiv;
+        }
+
+        function showSlide(index) {
+            document.querySelectorAll('.slide').forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+            });
+            document.getElementById('slide-counter').textContent = `${index + 1} / ${slidesData.length}`;
+            document.getElementById('prev').disabled = index === 0;
+            document.getElementById('next').disabled = index === slidesData.length - 1;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            slidesData.forEach((data, index) => {
+                presentationContainer.appendChild(createSlide(data, index));
+            });
+            
+            showSlide(currentSlide);
+
+            document.getElementById('next').addEventListener('click', () => {
+                if (currentSlide < slidesData.length - 1) { currentSlide++; showSlide(currentSlide); }
+            });
+            document.getElementById('prev').addEventListener('click', () => {
+                if (currentSlide > 0) { currentSlide--; showSlide(currentSlide); }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' && currentSlide < slidesData.length - 1) { currentSlide++; showSlide(currentSlide); } 
+                else if (e.key === 'ArrowLeft' && currentSlide > 0) { currentSlide--; showSlide(currentSlide); }
+            });
+        });
+    </script>
+</body>
+</html>
+
